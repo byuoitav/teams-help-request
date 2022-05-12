@@ -1,4 +1,4 @@
-package goteamsnotify
+package goteamsnotification
 
 import (
 	"fmt"
@@ -8,11 +8,7 @@ import (
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
 )
 
-func main(data string) {
-	_ = sendTheMessage(data)
-}
-
-func sendTheMessage(data string) error {
+func SendTheMessage(data string, webhook string, smee string) error {
 
 	tokens := strings.Split(data, "-")
 	building := tokens[0]
@@ -23,10 +19,10 @@ func sendTheMessage(data string) error {
 	mstClient := goteamsnotify.NewClient()
 
 	// setup webhook url
-	webhookUrl := "https://byu.webhook.office.com/webhookb2/5d065f4b-f069-4811-8f6a-4a26a12fe748@c6fc6e9b-51fb-48a8-b779-9ee564b40413/IncomingWebhook/e0f74f40e52e4360b5b9bd6e67945758/10d75264-373d-4eef-a190-d1c40162d969"
+	webhookUrl := webhook
 
 	// destination for OpenUri action
-	smeeURL := fmt.Sprintf("https://newsmee.av.byu.edu/rooms/%s-%s", building, room)
+	smeeURL := fmt.Sprintf(smee+"%s-%s", building, room)
 	smeeURLDesc := "View Room in Monitoring"
 
 	// setup message card

@@ -7,7 +7,7 @@ import (
 	"github.com/byuoitav/central-event-system/messenger"
 
 	"github.com/byuoitav/common/v2/events"
-	"github.com/byuoitav/help-request-teams-notifier/notifier"
+	"github.com/byuoitav/help-request-teams-notifier/goteamsnotification"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -22,16 +22,14 @@ func main() {
 	var (
 		logLevel   string
 		hubAddress string
-		apiAddress string
-		dbAddress  string
-		roomList   []string
+		webhookUrl string
+		smeeUrl    string
 	)
 
 	pflag.StringVarP(&logLevel, "log-level", "L", "info", "Level at which the logger operates")
-	pflag.StringVarP(&roomList[0], "device-id", "", "", "Device id as found in couch")
 	pflag.StringVarP(&hubAddress, "hub-address", "", "", "Address of the event hub")
-	pflag.StringVarP(&apiAddress, "av-api", "", "", "Address of the av-api")
-	pflag.StringVarP(&dbAddress, "db-address", "", "", "Address of the room database")
+	pflag.StringVarP(&webhookUrl, "webhook-url", "", "", "URL of the webhook to send to")
+
 	pflag.Parse()
 
 	_, log := logger(logLevel)
@@ -46,17 +44,8 @@ func main() {
 
 	//Subscribe to the event hub
 	log.Info("Listening for room events")
-	for _, room := range roomList {
-		eventMessenger.SubscribeToRooms(room)
-	}
 
-	notification := &notifier.Notification{
-		Log:      log,
-		Room:     "",
-		Building: "",
-		Device:   "",
-		Class:    "",
-	}
+	eventMessenger.SubscribeToRooms("*")
 
 	for {
 		event := eventMessenger.ReceiveEvent()
@@ -65,7 +54,7 @@ func main() {
 
 			//Handle Help Request
 			//Send Message Via Teams
-			notification.HandleEvent(event)
+			goteamsnotification.SendTheMessage(event.GeneratingSystem, webhookUrl, smeeUrl)
 		}
 	}
 }
