@@ -7,7 +7,7 @@ import (
 	"github.com/byuoitav/central-event-system/messenger"
 
 	"github.com/byuoitav/common/v2/events"
-	"github.com/byuoitav/help-request-teams-notifier/goteamsnotification"
+	"github.com/byuoitav/teams-help-request/goteamsnotification"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"

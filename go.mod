@@ -1,4 +1,4 @@
-module github.com/byuoitav/help-request-teams-notifier
+module github.com/byuoitav/teams-help-request
 
 go 1.18
 
