@@ -26,6 +26,7 @@ func main() {
 		smeeUrl    string
 	)
 
+	// parse flags
 	pflag.StringVarP(&logLevel, "log-level", "L", "info", "Level at which the logger operates")
 	pflag.StringVarP(&hubAddress, "hub-address", "", "", "Address of the event hub")
 	pflag.StringVarP(&webhookUrl, "webhook-url", "", "", "URL of the webhook to send to")
