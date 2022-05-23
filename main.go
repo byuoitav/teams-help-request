@@ -13,10 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// EventTags []string `json:"event-tags"` -> must contain alert
-// Key string `json:"key"` -> must be help-request
-// Value string `json:"value"` -> confirm ???
-
 func main() {
 
 	var (
@@ -37,7 +33,7 @@ func main() {
 	defer log.Sync()
 
 	//Connecting to event hub
-	log.Info("Starting event hub message")
+	log.Info("Starting event hub messenger")
 	eventMessenger, nerr := messenger.BuildMessenger(hubAddress, base.Messenger, 5000)
 	if nerr != nil {
 		log.Fatal("failed to build event hub messenger", zap.Error(nerr))
