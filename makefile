@@ -2,6 +2,7 @@ NAME := teams-help-request
 OWNER := byuoitav
 PKG := github.com/${OWNER}/${NAME}
 DOCKER_URL := docker.pkg.github.com
+DOCKER_PKG := ${DOCKER_URL}/${OWNER}/${NAME}
 
 # version:
 # use the git tag, if this commit
