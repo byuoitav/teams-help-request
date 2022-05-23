@@ -60,7 +60,7 @@ deploy: docker
 	@echo Pushing prd containers with tag ${TAG}
 
 	@echo Pushing container ${DOCKER_PKG}/teams-help-request:${TAG}
-	@docker push ${DOCKER_PKG}/teams-help-request}
+	@docker push ${DOCKER_PKG}/teams-help-request:${TAG}
 
 
 clean:
