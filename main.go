@@ -26,11 +26,18 @@ func main() {
 	pflag.StringVarP(&logLevel, "log-level", "L", "info", "Level at which the logger operates")
 	pflag.StringVarP(&hubAddress, "hub-address", "", "", "Address of the event hub")
 	pflag.StringVarP(&webhookUrl, "webhook-url", "", "", "URL of the webhook to send to")
+	pflag.StringVarP(&smeeUrl, "monitoring-url", "", "", "URL of the AV Monitoring Service")
 
 	pflag.Parse()
 
 	_, log := logger(logLevel)
 	defer log.Sync()
+
+	rm := goteamsnotification.RequestManager{
+		Log:           log,
+		MonitoringURL: smeeUrl,
+		WebhookURL:    webhookUrl,
+	}
 
 	//Connecting to event hub
 	log.Info("Starting event hub messenger")
@@ -49,14 +56,11 @@ func main() {
 		if checkEvent(event) {
 			log.Debug(fmt.Sprintf("this is a help request: %s", event.Key))
 
-			//Handle Help Request
 			//Send Message Via Teams
-			goteamsnotification.SendTheMessage(event.GeneratingSystem, webhookUrl, smeeUrl)
+			rm.SendTheMessage(event.GeneratingSystem)
 		}
 	}
 }
-
-//Helper Functions
 
 func checkEvent(event events.Event) bool {
 	return event.Key == "help-request" && event.Value == "confirm" && contains(event.EventTags, "alert")
