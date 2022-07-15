@@ -2,13 +2,19 @@ package goteamsnotification
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
+	"go.uber.org/zap"
 )
 
-func SendTheMessage(data string, webhook string, smee string) error {
+type RequestManager struct {
+	Log           *zap.Logger
+	MonitoringURL string
+	WebhookURL    string
+}
+
+func (rm *RequestManager) SendTheMessage(data string) error {
 
 	tokens := strings.Split(data, "-")
 	building := tokens[0]
@@ -18,11 +24,8 @@ func SendTheMessage(data string, webhook string, smee string) error {
 	// init client
 	mstClient := goteamsnotify.NewClient()
 
-	// setup webhook url
-	webhookUrl := webhook
-
 	// destination for OpenUri action
-	smeeURL := fmt.Sprintf(smee+"%s-%s", building, room)
+	smeeURL := fmt.Sprintf(rm.MonitoringURL+"/rooms/%s-%s", building, room)
 	smeeURLDesc := "View Room in Monitoring"
 
 	// setup message card
@@ -56,7 +59,7 @@ func SendTheMessage(data string, webhook string, smee string) error {
 	)
 
 	if err != nil {
-		log.Fatal("error encountered when creating new action:", err)
+		rm.Log.Error("error encountered when creating new action:", zap.Error(err))
 	}
 
 	smeeLink.MessageCardPotentialActionOpenURI.Targets =
@@ -69,9 +72,9 @@ func SendTheMessage(data string, webhook string, smee string) error {
 
 	// add the Action to the message card
 	if err := msgCard.AddPotentialAction(smeeLink); err != nil {
-		log.Fatal("error encountered when adding action to message card:", err)
+		rm.Log.Error("error encountered when adding action to message card:", zap.Error(err))
 	}
 
 	// send
-	return mstClient.Send(webhookUrl, msgCard)
+	return mstClient.Send(rm.WebhookURL, msgCard)
 }
