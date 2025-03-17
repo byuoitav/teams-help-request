@@ -1,80 +1,145 @@
 package goteamsnotification
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httputil"
 	"strings"
-
-	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
-	"go.uber.org/zap"
+	"time"
 )
 
 type RequestManager struct {
-	Log           *zap.Logger
+	Log           *slog.Logger
 	MonitoringURL string
 	WebhookURL    string
 }
 
-func (rm *RequestManager) SendTheMessage(data string) error {
+// MessageCard is the structure for the Teams message
+type MessageCard struct {
+	ThemeColor string           `json:"themeColor"`
+	Context    string           `json:"@context"`
+	Sections   []MessageSection `json:"sections"`
+	Summary    string           `json:"summary"`
+	Type       string           `json:"@type"`
+}
 
+// MessageSection represents a section in the Teams message
+type MessageSection struct {
+	ActivityTitle    string     `json:"activityTitle"`
+	ActivitySubtitle string     `json:"activitySubtitle"`
+	Facts            []CardFact `json:"facts"`
+	Markdown         bool       `json:"markdown"`
+}
+
+// CardFact represents a fact in a message section
+type CardFact struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+func (rm *RequestManager) SendTheMessage(data string) error {
 	tokens := strings.Split(data, "-")
 	building := tokens[0]
 	room := tokens[1]
 	device := tokens[2]
 
-	// init client
-	mstClient := goteamsnotify.NewClient()
-
 	// destination for OpenUri action
 	smeeURL := fmt.Sprintf(rm.MonitoringURL+"/rooms/%s-%s", building, room)
-	smeeURLDesc := "View Room in Monitoring"
 
-	// setup message card
-	msgCard := goteamsnotify.NewMessageCard()
-	msgCard.Title = "Help Request Bot"
-	msgCard.Summary = "Help Request Bot"
-
-	info := goteamsnotify.NewMessageCardSection()
-	info.ActivityTitle = fmt.Sprintf("Help Request for %s-%s", building, room)
-
-	buildingFact := goteamsnotify.NewMessageCardSectionFact()
-	buildingFact.Name = "Building"
-	buildingFact.Value = building
-
-	roomFact := goteamsnotify.NewMessageCardSectionFact()
-	roomFact.Name = "Room"
-	roomFact.Value = room
-
-	deviceFact := goteamsnotify.NewMessageCardSectionFact()
-	deviceFact.Name = "Device"
-	deviceFact.Value = device
-
-	info.AddFact(buildingFact, roomFact, deviceFact)
-
-	msgCard.AddSection(info)
-
-	// setup Action for message card
-	smeeLink, err := goteamsnotify.NewMessageCardPotentialAction(
-		goteamsnotify.PotentialActionOpenURIType,
-		smeeURLDesc,
-	)
-
-	if err != nil {
-		rm.Log.Error("error encountered when creating new action:", zap.Error(err))
-	}
-
-	smeeLink.MessageCardPotentialActionOpenURI.Targets =
-		[]goteamsnotify.MessageCardPotentialActionOpenURITarget{
+	// Create the message card payload
+	msgCard := &MessageCard{
+		ThemeColor: "0076D7",
+		Context:    "http://schema.org/extensions",
+		Summary:    "Help Request Bot",
+		Type:       "MessageCard",
+		Sections: []MessageSection{
 			{
-				OS:  "default",
-				URI: smeeURL,
+				ActivityTitle:    "Help Request Bot",
+				ActivitySubtitle: fmt.Sprintf("Help Request for %s-%s", building, room),
+				Facts: []CardFact{
+					{
+						Name:  "Building",
+						Value: building,
+					},
+					{
+						Name:  "Room",
+						Value: room,
+					},
+					{
+						Name:  "Device",
+						Value: device,
+					},
+					{
+						Name:  "Time Stamp",
+						Value: time.Now().Format(time.RFC1123),
+					},
+				},
+				Markdown: true,
 			},
-		}
-
-	// add the Action to the message card
-	if err := msgCard.AddPotentialAction(smeeLink); err != nil {
-		rm.Log.Error("error encountered when adding action to message card:", zap.Error(err))
+		},
 	}
 
-	// send
-	return mstClient.Send(rm.WebhookURL, msgCard)
+	// Convert the card to JSON
+	jsonData, err := json.Marshal(msgCard)
+	if err != nil {
+		rm.Log.Error("error marshaling message card to JSON", "error", err)
+		return err
+	}
+
+	// Debug log the JSON payload
+	rm.Log.Debug("sending message to Teams webhook",
+		"json_payload", string(jsonData),
+		"webhook_url", rm.WebhookURL)
+
+	// Create the HTTP request
+	req, err := http.NewRequest(http.MethodPost, rm.WebhookURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		rm.Log.Error("error creating HTTP request", "error", err)
+		return err
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+
+	// Log the full HTTP request in debug mode
+	if reqDump, err := httputil.DumpRequestOut(req, true); err == nil {
+		rm.Log.Debug("outgoing HTTP request", "request", string(reqDump))
+	}
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		rm.Log.Error("error sending request to Teams webhook", "error", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Log the full HTTP response in debug mode
+	if respDump, err := httputil.DumpResponse(resp, true); err == nil {
+		rm.Log.Debug("incoming HTTP response", "response", string(respDump))
+	} else {
+		// If we can't dump the whole response, at least try to log the body
+		if respBody, err := io.ReadAll(resp.Body); err == nil {
+			rm.Log.Debug("HTTP response body", "body", string(respBody))
+		}
+	}
+
+	// Check response status
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		rm.Log.Error("received non-success status code from Teams webhook",
+			"status_code", resp.StatusCode)
+		return fmt.Errorf("received non-success status code %d from Teams webhook", resp.StatusCode)
+	}
+
+	rm.Log.Info("successfully sent Teams notification",
+		"building", building,
+		"room", room,
+		"monitoring_url", smeeURL)
+
+	return nil
 }

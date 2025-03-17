@@ -1,8 +1,10 @@
-FROM gcr.io/distroless/static
-LABEL key="value"
+FROM alpine:3.18
 
 ARG NAME
 
-COPY ${NAME} /server
+RUN apk --no-cache add ca-certificates && \
+    update-ca-certificates
 
-ENTRYPOINT ["/server"]
+COPY ${NAME} /app
+
+ENTRYPOINT ["/app"]
